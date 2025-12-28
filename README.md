@@ -55,14 +55,46 @@
 
 ### 1. 前提条件の確認
 
-#### Ollamaのインストールと起動
+#### Ollamaのインストールと起動（Docker Compose推奨）
+
+**Docker Composeを使う場合（推奨）:**
+
+```bash
+# Ollamaコンテナの起動
+docker compose up -d
+
+# モデルのダウンロード（初回のみ）
+docker exec ollama ollama pull phi3
+
+# Ollama起動確認
+docker exec ollama ollama list
+
+# CLI対話テスト
+docker exec ollama ollama run phi3 "Hello"
+
+# HTTP API疎通確認（最重要）
+curl http://127.0.0.1:11434/api/generate \
+  -H "Content-Type: application/json" \
+  -d '{"model":"phi3","prompt":"Hello","stream":false}'
+```
+
+**次回以降の起動:**
+```bash
+# コンテナ起動
+docker compose up -d
+
+# コンテナ停止
+docker compose down
+```
+
+**ローカルインストールを使う場合:**
 
 ```bash
 # Ollamaのインストール（公式サイトから）
 # https://ollama.ai/
 
-# モデルのダウンロード（例: phi）
-ollama pull phi
+# モデルのダウンロード（例: phi3）
+ollama pull phi3
 
 # Ollama起動確認
 ollama list
