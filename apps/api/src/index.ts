@@ -2,6 +2,7 @@ import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { randomUUID } from 'crypto';
+import { saveMessage, getSession } from './session';
 
 const app = new Hono();
 
@@ -9,6 +10,18 @@ app.use('/*', cors());
 
 app.get('/health', (c) => {
   return c.json({ ok: true });
+});
+
+app.get('/sessions/:id', async (c) => {
+  const sessionId = c.req.param('id');
+
+  const session = await getSession(sessionId);
+
+  if (!session) {
+    return c.json({ error: 'Session not found' }, 404);
+  }
+
+  return c.json(session);
 });
 
 app.post('/chat', async (c) => {
@@ -38,8 +51,10 @@ app.post('/chat', async (c) => {
       throw new Error(`Ollama API error: ${ollamaResponse.statusText}`);
     }
 
-    const ollamaData = await ollamaResponse.json();
+    const ollamaData = (await ollamaResponse.json()) as { response: string };
     const reply = ollamaData.response;
+
+    await saveMessage(finalSessionId, message, reply);
 
     return c.json({
       reply,
