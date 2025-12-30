@@ -1,9 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
+import { Loader2, Send } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -17,6 +24,11 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [publishedCid, setPublishedCid] = useState<string | null>(null);
   const [loadCidInput, setLoadCidInput] = useState('');
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages.length, isLoading]);
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -109,162 +121,129 @@ export default function Home() {
   };
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
-      <h1>Mini Local AI Chat</h1>
-
-      {/* メッセージ一覧 */}
-      <div
-        style={{
-          border: '1px solid #ccc',
-          borderRadius: '8px',
-          padding: '1rem',
-          marginTop: '1rem',
-          height: '400px',
-          overflowY: 'auto',
-          backgroundColor: '#f9f9f9',
-        }}
-      >
-        {messages.length === 0 ? (
-          <p style={{ color: '#999' }}>メッセージはありません</p>
-        ) : (
-          messages.map((msg, idx) => (
-            <div
-              key={idx}
-              style={{
-                marginBottom: '1rem',
-                padding: '0.5rem',
-                borderRadius: '4px',
-                backgroundColor: msg.role === 'user' ? '#e3f2fd' : '#fff',
-                border: msg.role === 'user' ? '1px solid #90caf9' : '1px solid #eee',
-              }}
-            >
-              <strong>{msg.role === 'user' ? 'You' : 'AI'}:</strong>
-              <div style={{ marginTop: '0.25rem' }}>
-                {msg.role === 'assistant' ? (
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    rehypePlugins={[rehypeHighlight]}
-                  >
-                    {msg.content}
-                  </ReactMarkdown>
-                ) : (
-                  <p style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{msg.content}</p>
-                )}
-              </div>
+    <main className="container py-10">
+      <Card className="mx-auto max-w-3xl">
+        <CardHeader>
+          <CardTitle>Mini Local AI Chat</CardTitle>
+          <CardDescription>Local LLM chat sessions with IPFS publish/load.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+            <div className="grid gap-2 md:grid-cols-[1fr_auto]">
+              <Button
+                variant="secondary"
+                onClick={handlePublish}
+                disabled={!sessionId}
+                className="justify-center"
+              >
+                Publish
+              </Button>
+              {publishedCid ? (
+                <div className="rounded-md border bg-muted px-3 py-2 text-sm">
+                  <span className="font-medium">CID:</span> {publishedCid}
+                </div>
+              ) : (
+                <div className="hidden md:block" />
+              )}
             </div>
-          ))
-        )}
-      </div>
 
-      {/* 入力欄 + 送信 */}
-      <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
-        <textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              handleSend();
-            }
-          }}
-          placeholder="メッセージを入力..."
-          style={{
-            flex: 1,
-            padding: '0.5rem',
-            fontSize: '1rem',
-            borderRadius: '4px',
-            border: '1px solid #ccc',
-            minHeight: '60px',
-            resize: 'vertical',
-            fontFamily: 'inherit',
-          }}
-          disabled={isLoading}
-        />
-        <button
-          onClick={handleSend}
-          disabled={isLoading}
-          style={{
-            padding: '0.5rem 1rem',
-            fontSize: '1rem',
-            borderRadius: '4px',
-            border: 'none',
-            backgroundColor: '#1976d2',
-            color: 'white',
-            cursor: isLoading ? 'not-allowed' : 'pointer',
-            alignSelf: 'flex-end',
-          }}
-        >
-          {isLoading ? '送信中...' : '送信'}
-        </button>
-      </div>
-
-      {/* Publishボタン */}
-      <div style={{ marginTop: '2rem' }}>
-        <button
-          onClick={handlePublish}
-          disabled={!sessionId}
-          style={{
-            padding: '0.5rem 1rem',
-            fontSize: '1rem',
-            borderRadius: '4px',
-            border: 'none',
-            backgroundColor: '#4caf50',
-            color: 'white',
-            cursor: sessionId ? 'pointer' : 'not-allowed',
-          }}
-        >
-          Publish
-        </button>
-        {publishedCid && (
-          <div
-            style={{
-              marginTop: '0.5rem',
-              padding: '0.5rem',
-              backgroundColor: '#e8f5e9',
-              borderRadius: '4px',
-            }}
-          >
-            <strong>CID:</strong> {publishedCid}
+            <div className="grid gap-2 md:grid-cols-[1fr_auto]">
+              <Input
+                value={loadCidInput}
+                onChange={(e) => setLoadCidInput(e.target.value)}
+                placeholder="CIDを入力..."
+              />
+              <Button variant="outline" onClick={handleLoad}>
+                Load
+              </Button>
+            </div>
           </div>
-        )}
-      </div>
 
-      {/* CID入力 + Loadボタン */}
-      <div style={{ marginTop: '2rem', display: 'flex', gap: '0.5rem' }}>
-        <input
-          type="text"
-          value={loadCidInput}
-          onChange={(e) => setLoadCidInput(e.target.value)}
-          placeholder="CIDを入力..."
-          style={{
-            flex: 1,
-            padding: '0.5rem',
-            fontSize: '1rem',
-            borderRadius: '4px',
-            border: '1px solid #ccc',
-          }}
-        />
-        <button
-          onClick={handleLoad}
-          style={{
-            padding: '0.5rem 1rem',
-            fontSize: '1rem',
-            borderRadius: '4px',
-            border: 'none',
-            backgroundColor: '#ff9800',
-            color: 'white',
-            cursor: 'pointer',
-          }}
-        >
-          Load
-        </button>
-      </div>
+          <div className="h-[420px] overflow-y-auto rounded-lg border bg-muted/30 p-4">
+            {messages.length === 0 ? (
+              <p className="text-sm text-muted-foreground">メッセージはありません</p>
+            ) : (
+              <div className="space-y-4">
+                {messages.map((msg, idx) => (
+                  <div
+                    key={idx}
+                    className={cn(
+                      'rounded-lg border bg-background p-3',
+                      msg.role === 'user' && 'border-primary/30 bg-primary/[0.06]',
+                    )}
+                  >
+                    <div className="text-xs font-medium text-muted-foreground">
+                      {msg.role === 'user' ? 'You' : 'AI'}
+                    </div>
+                    <div className="mt-2">
+                      {msg.role === 'assistant' ? (
+                        <div className="prose prose-sm max-w-none dark:prose-invert prose-pre:rounded-md prose-pre:border prose-pre:bg-[#0d1117] prose-pre:p-3">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            rehypePlugins={[rehypeHighlight]}
+                          >
+                            {msg.content}
+                          </ReactMarkdown>
+                        </div>
+                      ) : (
+                        <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {isLoading && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    返信を生成中…
+                  </div>
+                )}
+                <div ref={bottomRef} />
+              </div>
+            )}
+          </div>
 
-      {sessionId && (
-        <p style={{ marginTop: '1rem', fontSize: '0.875rem', color: '#666' }}>
-          Session ID: {sessionId}
-        </p>
-      )}
-    </div>
+          <div className="grid gap-2">
+            <Textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              placeholder="メッセージを入力..."
+              disabled={isLoading}
+              className="min-h-[96px]"
+            />
+            <div className="flex items-center justify-between">
+              {sessionId ? (
+                <div className="text-xs text-muted-foreground">
+                  Session ID: <span className="font-mono">{sessionId}</span>
+                </div>
+              ) : (
+                <div className="text-xs text-muted-foreground">
+                  会話を開始するとSession IDが表示されます
+                </div>
+              )}
+
+              <Button onClick={handleSend} disabled={isLoading || !input.trim()}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="animate-spin" />
+                    送信中…
+                  </>
+                ) : (
+                  <>
+                    <Send />
+                    送信
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </main>
   );
 }
