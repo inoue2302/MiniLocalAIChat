@@ -11,9 +11,13 @@
     "clean:build": "rm -rf .next"
   },
   "dependencies": {
+    "highlight.js": "^11.11.1",
     "next": "^16.1.1",
     "react": "^19.2.3",
-    "react-dom": "^19.2.3"
+    "react-dom": "^19.2.3",
+    "react-markdown": "^10.1.0",
+    "rehype-highlight": "^7.0.2",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@types/node": "^25.0.3",
