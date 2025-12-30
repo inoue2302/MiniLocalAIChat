@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
-import { Loader2, Send } from 'lucide-react';
+import { Loader2, Send, Copy, Check } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,6 +24,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [publishedCid, setPublishedCid] = useState<string | null>(null);
   const [loadCidInput, setLoadCidInput] = useState('');
+  const [isCopied, setIsCopied] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -120,6 +121,18 @@ export default function Home() {
     }
   };
 
+  const handleCopyCid = async () => {
+    if (!publishedCid) return;
+
+    try {
+      await navigator.clipboard.writeText(publishedCid);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch (error) {
+      console.error('Failed to copy:', error);
+    }
+  };
+
   return (
     <main className="container py-10">
       <Card className="mx-auto max-w-3xl">
@@ -139,8 +152,22 @@ export default function Home() {
                 Publish
               </Button>
               {publishedCid ? (
-                <div className="rounded-md border bg-muted px-3 py-2 text-sm">
-                  <span className="font-medium">CID:</span> {publishedCid}
+                <div className="flex items-center gap-2">
+                  <div className="rounded-md border bg-muted px-3 py-2 text-sm">
+                    <span className="font-medium">CID:</span> {publishedCid}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleCopyCid}
+                    className="h-9 w-9 p-0"
+                  >
+                    {isCopied ? (
+                      <Check className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
                 </div>
               ) : (
                 <div className="hidden md:block" />
