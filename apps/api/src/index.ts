@@ -1,6 +1,7 @@
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { randomUUID } from 'crypto';
 
 const app = new Hono();
 
@@ -8,6 +9,49 @@ app.use('/*', cors());
 
 app.get('/health', (c) => {
   return c.json({ ok: true });
+});
+
+app.post('/chat', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { message, sessionId } = body;
+
+    if (!message || typeof message !== 'string') {
+      return c.json({ error: 'message is required and must be a string' }, 400);
+    }
+
+    const finalSessionId = sessionId || randomUUID();
+
+    const ollamaResponse = await fetch('http://localhost:11434/api/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'phi3',
+        prompt: message,
+        stream: false,
+      }),
+    });
+
+    if (!ollamaResponse.ok) {
+      throw new Error(`Ollama API error: ${ollamaResponse.statusText}`);
+    }
+
+    const ollamaData = await ollamaResponse.json();
+    const reply = ollamaData.response;
+
+    return c.json({
+      reply,
+      sessionId: finalSessionId,
+    });
+  } catch (error) {
+    console.error('Error in /chat:', error);
+    return c.json(
+      { error: error instanceof Error ? error.message : 'Internal server error' },
+      500
+    );
+  }
 });
 
 const port = 3001;
