@@ -9,12 +9,15 @@
 
 ## 機能
 
-### スコープ（ミニマム）
+### 実装済み
 
-- Web UIからメッセージ送信 → ローカルAPI → ローカルLLM応答表示
-- 会話ログをJSONとしてローカル保存
-- 会話ログをIPFSへ publish（`ipfs add`）してCIDを取得
-- CIDから会話ログを fetch（`ipfs cat`）してUIに復元
+- ✅ Web UIからメッセージ送信 → ローカルAPI → ローカルLLM応答表示
+- ✅ 会話ログをメモリ内に保存（セッション管理）
+- ✅ 会話ログをIPFSへ publish（HTTP API経由）してCIDを取得
+- ✅ CIDコピーボタン（クリップボードにコピー）
+- ✅ CIDから会話ログを fetch してUIに復元
+- ✅ Markdown レンダリング（コードハイライト対応）
+- ✅ Docker Compose で Ollama + IPFS を一括起動
 
 ### 非スコープ（今回やらない）
 
@@ -29,53 +32,60 @@
 ### 動作環境
 
 - **OS**: macOS / Windows / Linux（ローカル実行前提）
-- **Node.js**: 20+（推奨）
-- **パッケージマネージャ**: pnpm（推奨） or npm
+- **Node.js**: 20+（必須）
+- **パッケージマネージャ**: pnpm 10.26.2+（推奨）
+- **Docker**: Ollama と IPFS の実行に使用（推奨）
 
 ### 必須コンポーネント
 
 #### Local LLM: Ollama
 
-- モデルは軽量を推奨（例: phi / llama系）
-- API経由で推論を呼び出せること
+- Docker Compose で自動起動（推奨）
+- モデルは軽量を推奨（例: phi3 / llama系）
+- HTTP API（`http://localhost:11434`）経由で推論を呼び出し
 
-#### IPFS: kubo（ローカルdaemon）
+#### IPFS: kubo
 
-- `ipfs daemon` が起動していること
-- `ipfs add` / `ipfs cat` がCLIで動作すること
+- Docker Compose で自動起動（推奨）
+- HTTP API（`http://localhost:5001`）経由で会話ログを publish/fetch
+- Gateway（`http://localhost:8080`）で CID にアクセス可能
 
-### アプリ構成
+### アプリ構成（モノレポ）
 
-- **Web**: Next.js（UI）
-- **API**: Hono（またはNext Route Handlerでも可）
-- **会話ログ保存**: ファイルJSON（例: `./data/sessions/<sessionId>.json`）
-- **IPFS連携**: サーバー側からCLI実行 or HTTP API
+- **Web** (`apps/web`): Next.js 16 + React 19 + Tailwind CSS + shadcn/ui
+  - react-markdown でコードハイライト対応
+  - CID コピーボタン実装済み
+- **API** (`apps/api`): Hono（Node.js サーバー）
+  - `/chat` - Ollama との通信
+  - `/sessions/:id/publish` - IPFS への publish
+  - `/ipfs/:cid` - IPFS からの復元
+- **会話ログ保存**: メモリ内（`Map<sessionId, Session>`）
+- **IPFS連携**: HTTP API 経由（`http://localhost:5001/api/v0`）
 
 ## セットアップ
 
-### 1. 前提条件の確認
-
-#### Ollamaのインストールと起動（Docker Compose推奨）
-
-**Docker Composeを使う場合（推奨）:**
+### 1. Docker で Ollama と IPFS を起動（推奨）
 
 ```bash
-# Ollamaコンテナの起動
+# Docker Compose で Ollama と IPFS を起動
 docker compose up -d
 
-# モデルのダウンロード（初回のみ）
+# コンテナの起動確認
+docker ps
+
+# Ollama: モデルのダウンロード（初回のみ）
 docker exec ollama ollama pull phi3
 
-# Ollama起動確認
+# Ollama: モデル一覧確認
 docker exec ollama ollama list
 
-# CLI対話テスト
-docker exec ollama ollama run phi3 "Hello"
-
-# HTTP API疎通確認（最重要）
+# Ollama: HTTP API 疎通確認
 curl http://127.0.0.1:11434/api/generate \
   -H "Content-Type: application/json" \
   -d '{"model":"phi3","prompt":"Hello","stream":false}'
+
+# IPFS: デーモン起動確認
+curl http://127.0.0.1:5001/api/v0/id -X POST
 ```
 
 **次回以降の起動:**
@@ -89,31 +99,18 @@ docker compose down
 
 **ローカルインストールを使う場合:**
 
+Ollama:
 ```bash
-# Ollamaのインストール（公式サイトから）
-# https://ollama.ai/
-
-# モデルのダウンロード（例: phi3）
+# https://ollama.ai/ からインストール
 ollama pull phi3
-
-# Ollama起動確認
 ollama list
 ```
 
-#### IPFSのインストールと起動
-
+IPFS:
 ```bash
-# kuboのインストール（公式サイトから）
-# https://docs.ipfs.tech/install/command-line/
-
-# IPFSの初期化（初回のみ）
+# https://docs.ipfs.tech/install/command-line/ からインストール
 ipfs init
-
-# IPFSデーモンの起動
 ipfs daemon
-
-# 別ターミナルで動作確認
-ipfs id
 ```
 
 ### 2. アプリケーションのセットアップ
@@ -123,22 +120,40 @@ ipfs id
 git clone <repository-url>
 cd mini-local-ai-chat
 
-# 依存関係のインストール
+# 依存関係のインストール（モノレポ全体）
 pnpm install
-# または
-npm install
 
-# 開発サーバーの起動
+# 開発サーバーの起動（API と Web を同時起動）
 pnpm dev
-# または
-npm run dev
 ```
+
+`pnpm dev` で以下が同時起動されます：
+- **API サーバー**: `http://localhost:3001` (apps/api)
+- **Web UI**: `http://localhost:3000` (apps/web)
 
 ### 3. 動作確認
 
-ブラウザで `http://localhost:3000` にアクセス
+1. ブラウザで `http://localhost:3000` にアクセス
+2. メッセージを入力して送信 → Ollama から応答が返る
+3. 「Publish to IPFS」ボタンで会話を IPFS に保存
+4. 表示された CID をコピーして別のセッションで復元可能
 
 ## API仕様
+
+API サーバー: `http://localhost:3001`
+
+### ヘルスチェック
+
+```
+GET /health
+```
+
+**Response:**
+```json
+{
+  "ok": true
+}
+```
 
 ### チャット送信
 
@@ -149,35 +164,23 @@ POST /chat
 **Request Body:**
 ```json
 {
-  "sessionId": "string",
-  "message": "string"
+  "sessionId": "string (optional)",
+  "message": "string (required)"
 }
 ```
 
 **Response:**
 ```json
 {
-  "reply": "string"
+  "reply": "string",
+  "sessionId": "string"
 }
 ```
 
-### セッション公開（IPFS publish）
+### セッション取得
 
 ```
-POST /sessions/:id/publish
-```
-
-**Response:**
-```json
-{
-  "cid": "string"
-}
-```
-
-### IPFS復元
-
-```
-GET /ipfs/:cid
+GET /sessions/:id
 ```
 
 **Response:**
@@ -192,6 +195,19 @@ GET /ipfs/:cid
       "ts": "ISO 8601 string"
     }
   ]
+}
+```
+
+### セッション公開（IPFS publish）
+
+```
+POST /sessions/:id/publish
+```
+
+**Response:**
+```json
+{
+  "cid": "string"
 }
 ```
 
@@ -237,34 +253,61 @@ publish/restore時に原因が分かるエラーを返す:
 ## 開発コマンド
 
 ```bash
-# 開発サーバー起動
+# 開発サーバー起動（API + Web を同時起動）
 pnpm dev
 
-# ビルド
+# ビルド（全アプリをビルド）
 pnpm build
 
-# 本番環境起動
+# 本番環境起動（API + Web を同時起動）
 pnpm start
 
-# Lint
+# Lint（全アプリに対して実行）
 pnpm lint
 
-# テスト
-pnpm test
+# ビルドファイルをクリア
+pnpm clean:build
+
+# node_modules を含めて全削除
+pnpm clean
+```
+
+**個別のアプリケーションを操作する場合:**
+
+```bash
+# API のみ開発モードで起動
+pnpm --filter api dev
+
+# Web のみ開発モードで起動
+pnpm --filter web dev
+
+# API のみビルド
+pnpm --filter api build
 ```
 
 ## ディレクトリ構成
 
 ```
 mini-local-ai-chat/
-├── src/
-│   ├── app/          # Next.js pages
-│   ├── components/   # React components
-│   ├── lib/          # Utility functions
-│   └── api/          # API handlers (Hono or Route Handlers)
-├── data/
-│   └── sessions/     # Session JSON files
-├── public/           # Static files
+├── apps/
+│   ├── api/                    # Hono API サーバー
+│   │   ├── src/
+│   │   │   ├── index.ts        # メインサーバー + ルーティング
+│   │   │   ├── session.ts      # セッション管理（メモリ内）
+│   │   │   └── ipfs.ts         # IPFS HTTP API クライアント
+│   │   └── package.json
+│   └── web/                    # Next.js Web UI
+│       ├── src/
+│       │   ├── app/
+│       │   │   ├── page.tsx    # メインページ（チャットUI）
+│       │   │   └── layout.tsx  # レイアウト
+│       │   ├── components/ui/  # shadcn/ui コンポーネント
+│       │   └── lib/            # ユーティリティ
+│       └── package.json
+├── packages/                   # 共有パッケージ（将来用）
+├── docker-compose.yml          # Ollama + IPFS 定義
+├── pnpm-workspace.yaml         # モノレポ設定
+├── package.json                # ルート package.json
 └── README.md
 ```
 
@@ -272,17 +315,53 @@ mini-local-ai-chat/
 
 MIT
 
+## 使用ポート一覧
+
+| サービス | ポート | 用途 |
+|---------|--------|------|
+| Web UI | 3000 | Next.js フロントエンド |
+| API サーバー | 3001 | Hono バックエンド |
+| Ollama | 11434 | LLM HTTP API |
+| IPFS API | 5001 | IPFS HTTP API |
+| IPFS Gateway | 8080 | IPFS コンテンツ表示 |
+| IPFS P2P | 4001 | IPFS ネットワーク通信 |
+
 ## 注意事項
 
 - このアプリケーションは実験・学習目的で作成されています
 - 本番環境での使用は想定していません
 - セキュリティ機能（認証、暗号化など）は実装されていません
 - ローカル環境でのみ動作します
+- セッションデータはメモリ内にのみ保存されます（サーバー再起動で消失）
 
 ## 今後の検討事項
 
+- セッションの永続化（現在はメモリ内のみ）
 - 会話の暗号化
 - デジタル署名による検証
 - アクセス制御の実装
 - ベクトル検索 / RAG機能
 - マルチユーザー対応
+- ストリーミングレスポンス対応
+
+## 使用している主な技術・ライブラリ
+
+### Frontend (apps/web)
+- Next.js 16 (App Router)
+- React 19
+- TypeScript
+- Tailwind CSS
+- shadcn/ui (Button, Card, Input, Textarea)
+- react-markdown + rehype-highlight (Markdown レンダリング)
+- lucide-react (アイコン)
+
+### Backend (apps/api)
+- Hono (Web フレームワーク)
+- Node.js 20+
+- TypeScript
+- @hono/node-server
+
+### Infrastructure
+- Docker Compose
+- Ollama (LLM)
+- IPFS Kubo (分散ストレージ)
