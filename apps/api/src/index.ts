@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { randomUUID } from 'crypto';
 import { saveMessage, getSession } from './session';
+import { publishToIPFS } from './ipfs';
 
 const app = new Hono();
 
@@ -22,6 +23,29 @@ app.get('/sessions/:id', async (c) => {
   }
 
   return c.json(session);
+});
+
+app.post('/sessions/:id/publish', async (c) => {
+  try {
+    const sessionId = c.req.param('id');
+
+    const session = await getSession(sessionId);
+
+    if (!session) {
+      return c.json({ error: 'Session not found' }, 404);
+    }
+
+    const sessionData = JSON.stringify(session, null, 2);
+    const cid = await publishToIPFS(sessionData);
+
+    return c.json({ cid });
+  } catch (error) {
+    console.error('Error in /sessions/:id/publish:', error);
+    return c.json(
+      { error: error instanceof Error ? error.message : 'Internal server error' },
+      500
+    );
+  }
 });
 
 app.post('/chat', async (c) => {
