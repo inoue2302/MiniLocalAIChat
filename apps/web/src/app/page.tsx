@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
 interface Message {
@@ -25,6 +26,7 @@ export default function Home() {
   const [publishedCid, setPublishedCid] = useState<string | null>(null);
   const [loadCidInput, setLoadCidInput] = useState('');
   const [isCopied, setIsCopied] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -71,7 +73,7 @@ export default function Home() {
 
   const handlePublish = async () => {
     if (!sessionId) {
-      alert('まず会話を開始してください');
+      setErrorMessage('まず会話を開始してください');
       return;
     }
 
@@ -86,15 +88,16 @@ export default function Home() {
 
       const data = await res.json();
       setPublishedCid(data.cid);
+      setErrorMessage(null);
     } catch (error) {
       console.error('Error publishing:', error);
-      alert('Publishに失敗しました');
+      setErrorMessage('Publishに失敗しました');
     }
   };
 
   const handleLoad = async () => {
     if (!loadCidInput.trim()) {
-      alert('CIDを入力してください');
+      setErrorMessage('CIDを入力してください');
       return;
     }
 
@@ -115,9 +118,10 @@ export default function Home() {
 
       setMessages(loadedMessages);
       setPublishedCid(null);
+      setErrorMessage(null);
     } catch (error) {
       console.error('Error loading:', error);
-      alert('Loadに失敗しました');
+      setErrorMessage('Loadに失敗しました');
     }
   };
 
@@ -141,6 +145,11 @@ export default function Home() {
           <CardDescription>Local LLM chat sessions with IPFS publish/load.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {errorMessage && (
+            <Alert variant="destructive">
+              <AlertDescription>{errorMessage}</AlertDescription>
+            </Alert>
+          )}
           <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
             <div className="grid gap-2 md:grid-cols-[1fr_auto]">
               <Button
