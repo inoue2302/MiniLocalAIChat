@@ -1,16 +1,24 @@
-# CLAUDE.md (for mini-local-ai-chat)
+# Mini Local AI Chat
 
 このファイルは、Anthropic Claude などのAIがこのリポジトリで作業する際のガイドです。
 
 ## プロジェクト概要
 
+ローカルLLM（Ollama）を使ったチャットアプリ。会話をIPFSに保存・共有できる。
+
 - 目的: **ローカルLLM(Ollama)** と **IPFS(kubo)** を使い、クラウド依存なしのミニマルなAIチャットを検証する
 - 前提: 学習/実験用途（認証・暗号化・マルチユーザー等は非スコープ）
 
+## 技術スタック
+
+- **Frontend**: Next.js 16, React 19, TypeScript, Tailwind CSS
+- **Backend**: Hono (Node.js)
+- **Infrastructure**: Ollama (LLM), Kubo (IPFS), Docker Compose
+
 ## 構成
 
-- `apps/web`: Next.js (App Router) のUI
-- `apps/api`: Hono + Node サーバー（WebからのAPI呼び出し受け口）
+- `apps/web/` - Next.js (App Router) のUI
+- `apps/api/` - Hono + Node サーバー（WebからのAPI呼び出し受け口）
 - データ: `apps/api/data/sessions/*.json` にセッションを保存（`dist/`配下で動く前提のパス設計に注意）
 
 ## 外部サービス(ローカル)
@@ -28,6 +36,14 @@ pnpm lint        # web のみ（現状）
 pnpm build
 pnpm start
 ```
+
+## ポート
+
+- Web: 3000
+- API: 3001
+- Ollama: 11434
+- IPFS Gateway: 8080
+- IPFS API: 5001
 
 ## 作業方針（重要）
 
@@ -49,4 +65,3 @@ pnpm start
 - `pnpm dev` で起動できるか
 - 既存のAPIエンドポイントのI/Fを壊していないか
 - エラーメッセージが利用者に分かるか
-
